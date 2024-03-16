@@ -11,7 +11,7 @@ variables:
     value: latest
   #! Specify Artifacts Name
   - name: tfplan_Artifacts_Name
-    value: tf_plan_file
+    value: tf_plan_files
   #! Service Connection and Key Vault Name
   - name: service_Connection_Name
     value: "Terraform-Pipeline-Essential"
