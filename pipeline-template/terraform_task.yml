@@ -1,0 +1,26 @@
+parameters:
+  - name: runCommand
+    type: string
+  - name: commandOptions
+    type: string
+    default: ""
+
+steps:
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: azurerm
+      command: ${{ parameters.runCommand }}
+      commandOptions: ${{ parameters.commandOptions }}
+      workingDirectory: "$(System.DefaultWorkingDirectory)/examples/basic"
+      #! This backendService Azure Resource Manager would be used for store state file only!
+      #! May have minimal access level
+      backendServiceArm: $(service_Connection_Name)
+      backendAzureRmResourceGroupName: $(backendAzureRmResourceGroupName)
+      backendAzureRmStorageAccountName: $(backendAzureRmStorageAccountName)
+      backendAzureRmContainerName: $(backendAzureRmContainerName)
+      backendAzureRmKey: $(backendAzureRmKey)
+      #! This is the service connection that used for apply Terraform Apply for resources
+      environmentServiceNameAzureRM: $(service_Connection_Name)
+    env:
+      TF_VAR_private_key_file_path: $(private_key.secureFilePath)
+      TF_VAR_public_key_file_path: $(public_key.secureFilePath)

@@ -1,0 +1,94 @@
+pool:
+  name: Your Azure Pipeline Agent Pool Name
+
+variables:
+  - group: terraform-essential
+  #! Setup environment at Azure DevOps > Pipelines > Environment
+  - name: environment_Name
+    value: Terraform
+  #! Terraform Version
+  - name: terraform_Version
+    value: latest
+  #! Specify Artifacts Name
+  - name: tfplan_Artifacts_Name
+    value: tf_plan_file
+  #! Service Connection and Key Vault Name
+  - name: service_Connection_Name
+    value: "Terraform-Pipeline-Essential"
+  #! For Terraform Task use
+  - name: backendAzureRmResourceGroupName
+    value: "your_resource_group_name"
+  - name: backendAzureRmStorageAccountName
+    value: "your_storage_account_name"
+  - name: backendAzureRmContainerName
+    value: "your_storage_container_name"
+  - name: backendAzureRmKey
+    value: "stateFile/tf.state"
+  #! SSH Key Files for Azure DevOps > Pipelines > Library > Secure Files
+  #! Change the value to match your files on Azure DevOps > Pipelines > Library > Secure Files
+  - name: private_key_secure_file_name
+    value: "your_private_key_secure_file_name"
+  - name: public_key_secure_file_name
+    value: "your_public_key_secure_file_name"
+
+stages:
+  - stage: plan_and_validate
+    displayName: Plan and Validate
+    jobs:
+      - job:
+        steps:
+          - template: ./pipeline-template/init_script.yml
+          - template: ./pipeline-template/terraform_task.yml
+            parameters:
+              runCommand: validate
+          - template: ./pipeline-template/terraform_task.yml
+            parameters:
+              runCommand: plan
+              commandOptions: "-out=$(System.DefaultWorkingDirectory)/terraform.tfplan"
+          - task: CopyFiles@2
+            displayName: Copy Terraform Plan File
+            inputs:
+              Contents: "terraform.tfplan"
+              TargetFolder: "$(Build.ArtifactStagingDirectory)"
+          - publish: "$(Build.ArtifactStagingDirectory)/terraform.tfplan"
+            artifact: $(tfplan_Artifacts_Name)
+          - template: ./pipeline-template/pipeline_cleanup.yml
+  - stage: deploy_infra
+    dependsOn: plan_and_validate
+    condition: succeeded()
+    displayName: Deploy Infra
+    jobs:
+      - deployment: deploy_infra
+        displayName: Deploy Infrastructure
+        environment: $(environment_Name)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: $(tfplan_Artifacts_Name)
+                - template: ./pipeline-template/init_script.yml
+                - template: ./pipeline-template/terraform_task.yml
+                  parameters:
+                    runCommand: apply
+                    commandOptions: "$(Pipeline.Workspace)/$(tfplan_Artifacts_Name)/terraform.tfplan"
+                - publish: $(System.DefaultWorkingDirectory)/examples/basic/k3s_config
+                  artifact: k3s_config
+                - template: ./pipeline-template/pipeline_cleanup.yml
+  - stage: destroy_infra
+    dependsOn: deploy_infra
+    condition: succeededOrFailed()
+    displayName: Destroy Infra
+    jobs:
+      - deployment: destroy_infra
+        displayName: Destroy Infrastructure
+        environment: $(environment_Name)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: ./pipeline-template/init_script.yml
+                - template: ./pipeline-template/terraform_task.yml
+                  parameters:
+                    runCommand: destroy
+                - template: ./pipeline-template/pipeline_cleanup.yml

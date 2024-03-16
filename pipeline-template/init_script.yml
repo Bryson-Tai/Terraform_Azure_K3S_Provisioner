@@ -1,0 +1,22 @@
+steps:
+  - checkout: self
+    displayName: "Checkout repository"
+  - task: TerraformInstaller@1
+    displayName: Install Terraform
+    inputs:
+      terraformVersion: $(terraform_Version)
+  #! Download Secure File from Azure Pipeline Library
+  #! Then use the name: private_key.secureFilePath to locate the file
+  - task: DownloadSecureFile@1
+    name: private_key
+    inputs:
+      secureFile: $(private_key_secure_file_name)
+  - task: DownloadSecureFile@1
+    name: public_key
+    inputs:
+      secureFile: $(public_key_secure_file_name)
+  # Terraform Init Upgrade
+  - template: ./terraform_task.yml
+    parameters:
+      runCommand: init
+      commandOptions: "-upgrade"

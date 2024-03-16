@@ -1,0 +1,8 @@
+steps:
+  - script: |
+      rm -rf $private_file_path $public_file_path
+    condition: succeededOrFailed()
+    displayName: Remove SSH Private and Public Key File
+    env:
+      private_file_path: $(private_key.secureFilePath)
+      public_file_path: $(public_key.secureFilePath)
